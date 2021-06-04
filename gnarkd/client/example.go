@@ -24,7 +24,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/witness"
-	"github.com/consensys/gnark/examples/cubic"
+	"github.com/consensys/gnark/examples/largewitness"
 	"github.com/consensys/gnark/gnarkd/pb"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -55,20 +55,17 @@ func main() {
 	ctx := context.Background()
 
 	var buf bytes.Buffer
-	var w cubic.Circuit
-	w.X.Assign(3)
-	w.Y.Assign(35)
+	var w largewitness.Circuit
+
+	for i := 0; i < largewitness.Size; i++ {
+		w.P[i].Assign(1)
+	}
+	w.Q.Assign(largewitness.Size)
 
 	witness.WriteFullTo(&buf, ecc.BN254, &w)
 
-	// synchronous call
-	_, _ = c.Prove(ctx, &pb.ProveRequest{
-		CircuitID: "bn254/cubic",
-		Witness:   buf.Bytes(),
-	})
-
 	// async call
-	r, _ := c.CreateProveJob(ctx, &pb.CreateProveJobRequest{CircuitID: "bn254/cubic"})
+	r, _ := c.CreateProveJob(ctx, &pb.CreateProveJobRequest{CircuitID: "bn254/large"})
 	stream, _ := c.SubscribeToProveJob(ctx, &pb.SubscribeToProveJobRequest{JobID: r.JobID})
 
 	done := make(chan struct{})
@@ -90,7 +87,8 @@ func main() {
 		jobID, _ := uuid.Parse(r.JobID)
 		bjobID, _ := jobID.MarshalBinary()
 		conn.Write(bjobID)
-		conn.Write(buf.Bytes())
+		io.Copy(conn, &buf)
+		// conn.Write(buf.Bytes())
 	}()
 
 	<-done
