@@ -14,7 +14,6 @@ import (
 
 const circuitName = "large"
 
-//go:generate go run generate.go
 func main() {
 	log.Println("starting...")
 	defer log.Println("done")
